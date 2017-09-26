@@ -31,7 +31,7 @@ int gDeviceDelay[4] = {CONDUCTIVITY_DELAY, PH_DELAY, ORP_DELAY, OXYGEN_DELAY};
 /* GLOBAL VARIABLES */
 String gSensorAll = "";
 String gJsonRx = "";
-uint32_t gSensorTime = 60000;
+uint32_t gSensorTime = 120000;
 int gEepromFirst = 0;
 int gEepromLast = 0;
 uint32_t gPeriodicTime = 0;
@@ -59,18 +59,25 @@ void setup() {
 
 void loop() {
   char serialByte;
+  uint16_t _timeOut;
+  _timeOut = 0xFFFF;
   if(Serial.available()){
     serialByte = Serial.read();
     if(serialByte == '{'){
       gJsonRx += serialByte;
-      while(serialByte != '}'){
+      while((serialByte != '}')&(_timeOut != 0)){
         if(Serial.available()){
           serialByte = Serial.read();
           gJsonRx += serialByte;
+        } else{
+          _timeOut--;
         }
       }
     }
-    if(parseJson(gJsonRx) == 1){
+    if(_timeOut == 0){
+      Serial.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
+    }
+    else if(parseJson(gJsonRx) == 1){
       Serial.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
     } else{
       serialCommand();
@@ -81,7 +88,7 @@ void loop() {
   if((millis() - gPeriodicTime) > gSensorTime){
     readAtlasSensor();
     readDS18B20();
-    //sendSensorString();
+    sendSensorString();
     eepromSave();
     
     // Reset all flags and global variables
@@ -136,9 +143,12 @@ int serialCommand(void){
       }
     } else if(gFrameRx.F == "SENS"){
       int _num;
+      // Uncomment if immediate reading is neccessary
+      /*
       readAtlasSensor();
       readDS18B20();
       eepromSave();
+      */
       if(gEepromLast >= gEepromFirst){
         _num = gEepromLast - gEepromFirst;
       } else{
@@ -240,7 +250,7 @@ void readAtlasSensor(void){
   int j = 0;
   int _device;
   int _delay;
-  int _code;
+  uint8_t _code;
   char _sensor_data[50];
   char _char;
   /* Read 4 Atlas Sensor */
@@ -255,7 +265,7 @@ void readAtlasSensor(void){
     Wire.requestFrom(_device, 20, 1);
     _code = Wire.read();
     /*
-    switch (gCode) {                   //switch case based on what the response code is.
+    switch (_code) {                   //switch case based on what the response code is.
       case 1:                         //decimal 1.
         Serial.println("gCode = Success");    //means the command was successful.
         break;                        //exits the switch case.
@@ -311,6 +321,9 @@ void readDS18B20(void){
   _temperature = ds18b20.getTempCByIndex(0);
   String str(_temperature);
   if(str == "-127.00"){
+    str = "xxx";
+  }
+  if(str == "127.00"){
     str = "xxx";
   }
   gSensorAll += ',' + str;
