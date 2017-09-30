@@ -84,7 +84,8 @@ void loop() {
     }
     gJsonRx = "";
   }
-  
+  // Uncomment if need peiodic time
+  /*
   if((millis() - gPeriodicTime) > gSensorTime){
     readAtlasSensor();
     readDS18B20();
@@ -95,6 +96,7 @@ void loop() {
     gPeriodicTime = millis();
     gSensorAll = "";
   }
+  */
 }
 
 /* LOCAL FUNCTIONS */
@@ -142,13 +144,18 @@ int serialCommand(void){
         Serial.println("{\"T\":\"RES\",\"F\":\"TIME\",\"D\":\"ERR\"}");
       }
     } else if(gFrameRx.F == "SENS"){
-      int _num;
+      // int _num;
+      gSensorAll = "";
+      readAtlasSensor();
+      readDS18B20();
+      sendSensorString();
       // Uncomment if immediate reading is neccessary
       /*
       readAtlasSensor();
       readDS18B20();
       eepromSave();
       */
+      /*
       if(gEepromLast >= gEepromFirst){
         _num = gEepromLast - gEepromFirst;
       } else{
@@ -169,6 +176,7 @@ int serialCommand(void){
           gEepromFirst = 0;
         }
       }
+      */
       gSensorAll = "";
     } else{
       Serial.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
@@ -250,6 +258,7 @@ void readAtlasSensor(void){
   int j = 0;
   int _device;
   int _delay;
+  uint16_t _timeout;
   uint8_t _code;
   char _sensor_data[50];
   char _char;
@@ -285,7 +294,9 @@ void readAtlasSensor(void){
     */
     if(_code == 1){
       i = 0;
+      _timeout = 0xFFF;
       while(Wire.available()){
+        _timeout--;
         _char = Wire.read();
         _sensor_data[i] = _char;
         i++;
@@ -294,15 +305,20 @@ void readAtlasSensor(void){
           Wire.endTransmission();
           break;
         }
-      }
-      String str(_sensor_data);
-      gSensorAll = gSensorAll + str;
-    } else{
+        if(_timeout == 0){
+          break;
+        }
+      } 
+    }
+    if((_code != 1)|(_timeout == 0)){
       if(j != 1){
         gSensorAll = gSensorAll + "xxx";
       } else{
         gSensorAll = gSensorAll + "xxx,xxx,xxx,xxx";
       }
+    } else{
+      String str(_sensor_data);
+      gSensorAll = gSensorAll + str;
     }
     if(j != 1)
       gSensorAll = gSensorAll + ',';
