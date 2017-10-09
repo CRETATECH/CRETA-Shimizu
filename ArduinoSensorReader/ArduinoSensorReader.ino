@@ -52,7 +52,7 @@ int serialCommand(void);
 
 /* ARDUINO SETUP AND LOOP FUNCTION */
 void setup() {
-  SerialUSB.begin(9600);
+  Serial1.begin(9600);
   Wire.begin();
   ds18b20.begin();
 }
@@ -61,13 +61,13 @@ void loop() {
   char serialByte;
   uint16_t _timeOut;
   _timeOut = 0xFFFF;
-  if(SerialUSB.available()){
-    serialByte = SerialUSB.read();
+  if(Serial1.available()){
+    serialByte = Serial1.read();
     if(serialByte == '{'){
       gJsonRx += serialByte;
       while((serialByte != '}')&(_timeOut != 0)){
-        if(SerialUSB.available()){
-          serialByte = SerialUSB.read();
+        if(Serial1.available()){
+          serialByte = Serial1.read();
           gJsonRx += serialByte;
         } else{
           _timeOut--;
@@ -75,10 +75,10 @@ void loop() {
       }
     }
     if(_timeOut == 0){
-      SerialUSB.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
+      Serial1.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
     }
     else if(parseJson(gJsonRx) == 1){
-      SerialUSB.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
+      Serial1.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
     } else{
       serialCommand();
     }
@@ -138,10 +138,10 @@ int serialCommand(void){
   } else {
     if(gFrameRx.F == "TIME"){
       if(0 != gFrameRx.D.toInt()){
-        SerialUSB.println("{\"T\":\"RES\",\"F\":\"TIME\",\"D\":\"OK\"}");
+        Serial1.println("{\"T\":\"RES\",\"F\":\"TIME\",\"D\":\"OK\"}");
         gSensorTime = 60000*gFrameRx.D.toInt();
       } else {
-        SerialUSB.println("{\"T\":\"RES\",\"F\":\"TIME\",\"D\":\"ERR\"}");
+        Serial1.println("{\"T\":\"RES\",\"F\":\"TIME\",\"D\":\"ERR\"}");
       }
     } else if(gFrameRx.F == "SENS"){
       // int _num;
@@ -161,7 +161,7 @@ int serialCommand(void){
       } else{
         _num = gEepromFirst - gEepromLast + 9;
       }
-      SerialUSB.println("{\"T\":\"RES\",\"F\":\"SENS\",\"D\":\"" + String(_num, DEC) +"\"}");
+      Serial1.println("{\"T\":\"RES\",\"F\":\"SENS\",\"D\":\"" + String(_num, DEC) +"\"}");
       int i, j;
       char sensorstring_array[50];
       for(i = 0; i < _num; i++){
@@ -179,7 +179,7 @@ int serialCommand(void){
       */
       gSensorAll = "";
     } else{
-      SerialUSB.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
+      Serial1.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
     }
   }
   gFrameRx.T = "";
@@ -246,7 +246,7 @@ void sendSensorString(void){
   JSON += GRA + "\",";
   JSON += "\"TEM\":\"";
   JSON += TEM + "\"}";
-  SerialUSB.println(JSON);
+  Serial1.println(JSON);
 }
 /**
  * @brief   To read 4 Atlas' sensor
@@ -278,19 +278,19 @@ void readAtlasSensor(void){
     /*
     switch (_code) {                   //switch case based on what the response code is.
       case 1:                         //decimal 1.
-        SerialUSB.println("gCode = Success");    //means the command was successful.
+        Serial1.println("gCode = Success");    //means the command was successful.
         break;                        //exits the switch case.
   
       case 2:                         //decimal 2.
-        SerialUSB.println("gCode = Failed");     //means the command has failed.
+        Serial1.println("gCode = Failed");     //means the command has failed.
         break;                        //exits the switch case.
   
       case 254:                      //decimal 254.
-        SerialUSB.println("gCode = Pending");   //means the command has not yet been finished calculating.
+        Serial1.println("gCode = Pending");   //means the command has not yet been finished calculating.
         break;                       //exits the switch case.
   
       case 255:                      //decimal 255.
-        SerialUSB.println("gCode = No Data");   //means there is no further data to send.
+        Serial1.println("gCode = No Data");   //means there is no further data to send.
         break;                       //exits the switch case.
     }
     */
