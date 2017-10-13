@@ -9,7 +9,7 @@
 #include <ArduinoJson.h>
 
 /* DS18B20 SETUP */
-#define ONE_WIRE_BUS 5
+#define ONE_WIRE_BUS 13
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature ds18b20(&oneWire);
 
@@ -24,6 +24,19 @@ DallasTemperature ds18b20(&oneWire);
 #define PH_DELAY 900
 #define ORP_DELAY 900
 #define OXYGEN_DELAY 600
+
+#define LED_RED 4
+#define LED_GREEN 5
+#define LED_YELLOW_A 7
+#define LED_YELLOW_B 8
+#define BUZZER 9
+
+#define FLAG_ERR_NET 0x01
+#define FLAG_ERR_THRES 0x02
+#define FLAG_ERR_SENS 0x04
+#define FLAG_OK 0x08
+
+uint8_t gFlagErr = 0x0F;
 
 int gDeviceAddr[4] = {CONDUCTITY_ADDR, PH_ADDR, ORP_ADDR, OXYGEN_ADDR};
 int gDeviceDelay[4] = {CONDUCTIVITY_DELAY, PH_DELAY, ORP_DELAY, OXYGEN_DELAY};
@@ -52,9 +65,15 @@ int serialCommand(void);
 
 /* ARDUINO SETUP AND LOOP FUNCTION */
 void setup() {
-  Serial1.begin(9600);
+  Serial1.begin(115200);
   Wire.begin();
   ds18b20.begin();
+  /* Led setup */
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_YELLOW_A, OUTPUT);
+  pinMode(LED_YELLOW_B, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
 }
 
 void loop() {
@@ -84,6 +103,7 @@ void loop() {
     }
     gJsonRx = "";
   }
+  alertShow();
   // Uncomment if need peiodic time
   /*
   if((millis() - gPeriodicTime) > gSensorTime){
@@ -178,6 +198,13 @@ int serialCommand(void){
       }
       */
       gSensorAll = "";
+    } else if(gFrameRx.F == "ALERT") {
+      if(gFrameRx.D == "RED"){
+        gFlagErr |= FLAG_ERR_NET;
+      }
+      if(gFrameRx.D == "GREEN"){
+        gFlagErr |= FLAG_OK;
+      }
     } else{
       Serial1.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
     }
@@ -313,6 +340,7 @@ void readAtlasSensor(void){
       } 
     }
     if((_code != 1)|(_timeout == 0)){
+      gFlagErr |= FLAG_ERR_SENS;
       if(j != 1){
         gSensorAll = gSensorAll + "xxx";
       } else{
@@ -339,11 +367,61 @@ void readDS18B20(void){
   _temperature = ds18b20.getTempCByIndex(0);
   String str(_temperature);
   if(str == "-127.00"){
+    gFlagErr |= FLAG_ERR_SENS;
     str = "xxx";
   }
   if(str == "127.00"){
+    gFlagErr |= FLAG_ERR_SENS;
     str = "xxx";
   }
   gSensorAll += ',' + str;
+}
+
+void alertShow(){
+  static uint8_t _last_status = 0;
+  static uint32_t _last_update = 0;
+  if(_last_status != gFlagErr){
+    _last_status = gFlagErr;
+    _last_update = millis();
+  } else {
+    if((millis() - _last_update) > 3000){
+      gFlagErr = 0;
+    }
+  }
+  /* Check error flag */
+  if(((gFlagErr & FLAG_ERR_THRES) == FLAG_ERR_THRES)|((gFlagErr & FLAG_ERR_NET) == FLAG_ERR_NET)){
+    if(digitalRead(LED_RED) == HIGH){
+      digitalWrite(LED_RED, LOW);
+    }
+    if(digitalRead(BUZZER) == LOW){
+      digitalWrite(BUZZER, HIGH);
+    }
+  } else{
+    digitalWrite(LED_RED, HIGH);
+  }
+  /* Check ok flag */
+  if((gFlagErr & FLAG_OK) == FLAG_OK){
+    if(digitalRead(LED_GREEN) == HIGH){
+      digitalWrite(LED_GREEN, LOW);
+    }
+  }else{
+    digitalWrite(LED_GREEN, HIGH);
+  }
+  
+  if((gFlagErr & FLAG_ERR_SENS) == FLAG_ERR_SENS){
+    if(digitalRead(LED_YELLOW_A) == HIGH){
+      digitalWrite(LED_YELLOW_A, LOW);
+      digitalWrite(LED_YELLOW_B, LOW);
+    }
+    if(digitalRead(BUZZER) == LOW){
+      digitalWrite(BUZZER, HIGH);
+    }
+  }else{
+    digitalWrite(LED_YELLOW_A, HIGH);
+    digitalWrite(LED_YELLOW_B, HIGH);
+  }
+  if((digitalRead(LED_YELLOW_A) == HIGH)|(digitalRead(LED_RED) == HIGH)){
+    digitalWrite(BUZZER, LOW);
+  }
 }
 
