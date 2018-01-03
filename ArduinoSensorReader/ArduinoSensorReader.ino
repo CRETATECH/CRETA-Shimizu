@@ -205,6 +205,12 @@ int serialCommand(void){
       if(gFrameRx.D == "GREEN"){
         gFlagErr |= FLAG_OK;
       }
+    } else if(gFrameRx.F == "CALM") {
+      pHCalib("mid", gFrameRx.D); 
+    } else if(gFrameRx.F == "CALL") {
+      pHCalib("low", gFrameRx.D); 
+    } else if(gFrameRx.F == "CALH") {
+      pHCalib("high", gFrameRx.D); 
     } else{
       Serial1.println("{\"T\":\"RES\",\"F\":\"\",\"D\":\"ERR\"}");
     }
@@ -356,6 +362,29 @@ void readAtlasSensor(void){
     memset(_sensor_data, 0x00, sizeof(_sensor_data));
   }
 }
+/**
+ * @brief   To calib pH sensor
+ * @detail  Can use 1, 2 or 3 step calib
+ */
+void pHCalib(String pFunc, String pValue) {
+  String cmd = "";
+  cmd += "cal";
+  cmd += ",";
+  cmd += pFunc;
+  cmd += ",";
+  cmd += pValue;
+  Wire.beginTransmission(PH_ADDR);
+  for(int i = 0; i < cmd.length(); i++) {
+    Wire.write(cmd[i]);
+  }
+  uint8_t err = Wire.endTransmission();
+  delay(PH_DELAY);
+  Wire.requestFrom(PH_ADDR, 1, 1);
+  uint8_t _code = Wire.read();
+  //! Check code
+}
+
+ 
 /**
  * @brief   To read DS18B20
  * @detail  Add temperature value to the end of gSensorAll
